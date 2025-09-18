@@ -168,10 +168,29 @@ recombina_elementos:
 @;		R0 = el número aleatorio dentro del rango especificado (0..n-1)
 	.global mod_random
 mod_random:
-		push {lr}
+		push {r2-r4, lr}
 		
+		cmp r0, #2				@;compara el rango de entrada con el mínimo
+		movlo r0, #2			@;si menor, fija el rango mínimo
+		cmp r0, #0xFF			@;compara el rango de entrada con el máximo
+		movhi r0, #0xFF			@;si mayor, fija el rango máximo
+		sub r2, r0, #1			@;R2 = R0-1 (número más alto permitido)
+		mov r3, #1				@;R3 = máscara de bits
+	.Lmodran_forbits:
+		mov r3, r3, lsl #1
+		orr r3, #1				@;inyecta otro bit
+		cmp r3, r2				@;genera una máscara superior al rango requerido
+		blo .Lmodran_forbits
 		
-		pop {pc}
+	.Lmodran_loop:
+		bl random				@;R0 = número aleatorio de 32 bits
+		and r4, r0, r3			@;filtra los bits de menos peso según máscara
+		cmp r4, r2				@;si resultado superior al permitido,
+		bhi .Lmodran_loop		@; repite el proceso
+		mov r0, r4
+		
+		pop {r2-r4, pc}
+
 
 
 
