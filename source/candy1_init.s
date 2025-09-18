@@ -42,12 +42,88 @@
 @;	Parámetros:
 @;		R0 = dirección base de la matriz de juego
 @;		R1 = número de mapa de configuración
+@;		MÀSCARES:
+
+		CASELLA_BUIDA = 0x00 @; 0
+		EST = 0x00
+		SUD = 0x01
+		OEST = 0x02
+		NORD = 0x03
+		
 	.global inicializa_matriz
 inicializa_matriz:
-		push {lr}		@;guardar registros utilizados + link register
-		
-		
-		pop {pc}		@;recuperar registros y retornar al invocador
+		push {r0-r11, lr}              @; Guardar registres i LR
+
+    ldr r11, =mapas                @; Adreça base de 'mapas'
+    mov r9, #(ROWS*COLUMNS)        @; 81 elements per mapa
+    mul r3, r1, r9                 @; Multiplicar l'índex del mapa (r1) per 81 per trobar posició del mapa corresponent
+	add r11, r11, r3               @; Obtenir l'adreça del mapa corresponent usant r1 (num_mapa)
+
+    mov r10, #0                    @; Índex de fila
+    mov r4, #COLUMNS               @; Nombre de columnes
+    mov r5, #ROWS                  @; Nombre de files
+	mov r9, r0                     @; Punter a la matriu destí
+
+bucle_files:
+    cmp r10, r5                    @; Comprovar si hem acabat les files
+    bhs fi
+
+    mov r6, #0                     @; Índex de columna
+
+bucle_columnes:
+    cmp r6, r4                     @; Comprovar si hem acabat les columnes
+    bhs seguent_fila
+
+    @; Calcular l'offset dins de la matriu
+    mul r7, r10, r4                @; Multiplicar la fila pel nombre de columnes 
+	add r7, r7, r6                 @; Sumar la columna a l'índex (posició a la matriu)
+
+    ldrb r8, [r11, r7]             @; Llegir valor del mapa en aquesta posició
+	
+    tst r8, #0x07                  @; Comprovar si els 3 últims bits = 0 (casella buida)
+    beq generar_aleatori           @; Si està buida, generar un número
+
+    strb r8, [r9, r7]              @; Copiar directament el valor a la matriu destí
+    b seguent_casella
+
+generar_aleatori:
+    mov r0, #7                     @; Ajustar rang per a generar número
+    bl mod_random
+	cmp r0, #CASELLA_BUIDA         @; Comprovar si el número és 0 
+	beq generar_aleatori
+    orr r8, r8, r0                 @; Afegir possible màscara de gelatina
+    strb r0, [r9, r7]              @; Guardar valor aleatori a la matriu destí
+
+    @; Comprovació de repeticions (OEST)
+    mov r0, r9
+    mov r1, r10
+    mov r2, r6
+    mov r3, #OEST
+    bl cuenta_repeticiones
+    cmp r0, #3
+    bhs generar_aleatori
+
+    @; Comprovació de repeticions (NORD)
+    mov r0, r9
+    mov r1, r10
+    mov r2, r6
+    mov r3, #NORD
+    bl cuenta_repeticiones
+    cmp r0, #3
+    bhs generar_aleatori
+
+    b seguent_casella
+
+seguent_casella:
+    add r6, #1                     @; Avançar a la següent columna
+    b bucle_columnes
+
+seguent_fila:
+    add r10, #1                    @; Avançar a la següent fila
+    b bucle_files
+
+fi:
+    pop {r0-r11, pc}               @; Restaurar registres i tornar
 
 
 @;TAREA 1B;
