@@ -26,13 +26,125 @@
 @;		R0 = dirección base de la matriz de juego
 @;	Resultado:
 @;		R0 = 1 si hay una secuencia, 0 en otro caso
+@;  Valores constantes:
+		MASC = 0x07					@; mascara de 0x07 para guardar ultimos 3 bits
+		BUID = 0x00					@; casilla vacia
+		
 	.global hay_combinacion
 hay_combinacion:
-		push {lr}
-		
-		
-		pop {pc}
 
+	push {r1-r10, lr}         
+	
+		mov r4, r0                	@; posicion/direccion actual de la matriz 
+		mov r7, #COLUMNS          	@; numero de columnas  
+		mov r1, #0                	@; indice filas
+	  
+	.Lfor_Rows: 
+	
+		mov r2, #0 					@; indice columnas
+
+	.Lfor_Columns: 
+	
+		mla r8, r1, r7, r2 			@; calculamos la posicion de la fila (desplazamiento lineal de la celda actual) = (i*COLUMNS) + j 
+		ldrb r9, [r4, r8] 			@; cargamos la celda = matriz[i][j] 
+
+		and r3, r9, #MASC 			@; obtenemos 3 bits menos significativos de un elemento
+		cmp r3, #BUID            	@; comprobamos si esta vacio 
+		beq .Lnext_pos           	@; si es asi, saltamos a la siguente posicion 
+		cmp r3, #MASC            	@; comprobamos si es el bloque solido 
+		beq .Lnext_pos           	@; si es asi, saltamos a la siguiente posicion
+		
+		cmp r2, #COLUMNS-1       	@; comprobamos si estamos en la ultima columna 
+		beq .LnextV            		@; si es asi, entonces no hay vecino a la derecha. Saltamos a la comprobacion vertical 
+		
+		mov r5, r8               	@; creamos un registro temporal de la casilla actual 
+		add r5, #1               	@; r5 es un indice de la casilla de la derecha i*(j+1) 
+		ldrb r10, [r4, r5]       	@; cargamos la celda para nuevo indice r5
+		
+		and r6, r10, #MASC       	@; obtenemos 3 bits menos significativos de un elemento 
+		cmp r6, #BUID           	@; comprobamos si esta vacio  
+		beq .LnextV            		@; si es asi, saltamos a la siguente posicion 
+		cmp r6, #MASC           	@; comprobamos si es el bloque solido 
+		beq .LnextV            		@; si es asi, saltamos a la siguiente posicion 
+		cmp r3, r6               	@; comprobamos si los dos elementos(actual y vecina) son iguales 
+		beq .LnextV            		@; si es asi, esto no creará secuencia nueva en la hora intercambiarlos. Saltamos 
+		
+		@; hacemos un intercambio de las posiciones
+		strb r9, [r4, r5]        	@; el valor actual -> en la posición derecha 
+		strb r10, [r4, r8]       	@; el valor del vecino -> en la posición actual
+		 
+		bl detecta_orientacion    	@; si devuelva 0..5 -> hay posibles secuencia/s, 6 -> no hay secuencia 
+		cmp r0, #6               	@; comprobamos si hay secuencia 
+		bne .Lyes_comb           	@; si hay comibinacion, saltamos 
+		add r2, #1               	@; si no hay en la primera celda, probamos la otra intercambiada 
+
+		bl detecta_orientacion   	@; comprobamos  para la otra celda 
+		cmp r0, #6 					@; comprobamos si hay secuencia 
+		bne .Lyes_comb           	@; si hay comibinacion, saltamos 
+		sub r2, #1               	@; recuperamos valor original
+	
+		@; deshacemos el intercambio y restauramos los valores
+		strb r9, [r4, r8]        	
+		strb r10, [r4, r5]       	 
+
+	.LnextV:
+ 
+		cmp r1, #ROWS-1				@; comprobamos si estamos en la ultima fila 
+		beq .Lnext_pos 				@; si es asi, entonces no hay vecino abajo. Saltamos a la siguente posicion 
+
+		add r5, r8, #COLUMNS    	@; r5 es un indice de la celda inferior (posicion actual + COLUMNS) 
+		ldrb r10, [r4, r5]      	@; cargamos la celda inferior
+		
+		and r6, r10, #MASC       	@; obtenemos 3 bits menos significativos de un elemento 
+		cmp r6, #BUID           	@; comprobamos si esta vacio  
+		beq .Lnext_pos            	@; si es asi, saltamos a la siguente posicion 
+		cmp r6, #MASC           	@; comprobamos si es el bloque solido 
+		beq .Lnext_pos            	@; si es asi, saltamos a la siguiente posicion 
+		cmp r3, r6               	@; comprobamos si los dos elementos(actual y vecina) son iguales 
+		beq .Lnext_pos         		@; si es asi, esto no creará secuencia nueva en la hora intercambiarlos. Saltamos 
+		
+		@; hacemos un intercambio de las posiciones
+		strb r9, [r4, r5]       	 
+		strb r10, [r4, r8]      	 
+		
+		bl detecta_orientacion    	@; si devuelva 0..5 -> hay posibles secuencia/s, 6 -> no hay secuencia 
+		cmp r0, #6               	@; comprobamos si hay secuencia 
+		bne .Lyes_comb           	@; si hay comibinacion, saltamos 
+		add r1, #1               	@; si no hay en la primera celda, probamos la otra intercambiada 
+
+		bl detecta_orientacion   	@; comprobamos  para la otra celda 
+		cmp r0, #6 					@; comprobamos si hay secuencia 
+		bne .Lyes_comb           	@; si hay comibinacion, saltamos 
+		sub r1, #1               	@; recuperamos valor original
+	
+		@; deshacemos el intercambio y restauramos los valores
+		strb r9, [r4, r8]        	
+		strb r10, [r4, r5]
+
+	.Lnext_pos: 
+	
+		add r2, #1 					@; avanzamos a la siguiente columna
+		cmp r2, r7 					@; si r2 < COLUMNS, repetimos el bucle de columnas
+		blt .Lfor_Columns 	 
+
+		add r1, #1              	@; si se han terminado las columnas, avanzamos a la siguiente fila 
+		cmp r1, #ROWS 				@; si r1 < ROWS, repetimos el bucle de filas
+		blt .Lfor_Rows     
+
+		mov r0, #0              	@; devolvemos 0, si no se ha encontrado ningina combinacion 
+		b .Lend 
+
+	.Lyes_comb: 
+		
+		mov r0, #1 					@; devolvemos 1, si se ha encontrado una combinacion valida
+		
+		@; aseguramos que la matriz se queda en el estado original 
+		strb r9, [r4, r8] 			 @; el valor actual <- en la posición derecha
+		strb r10, [r4, r5]			 @; el valor del vecino <- en la posición actual
+	 
+	.Lend: 
+	
+	pop {r1-r10, pc} 
 
 
 @;TAREA 1H;
