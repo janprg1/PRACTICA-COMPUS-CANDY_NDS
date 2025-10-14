@@ -444,37 +444,57 @@ void procesa_sugerencia(char mat[][COLUMNS], unsigned short lap)
 
 
 /* ---------------------------------------------------------------- */
-/* candy1_main.c : función principal main() para test de tarea 1A 	*/
-/*					(requiere tener implementada la tarea 1E)		*/
+/*  candy1_main.c : función principal main() para test de tarea 1B  */				
 /* ---------------------------------------------------------------- */
+
 int main(void)
 {
-	unsigned char level = 0;		// nivel del juego (nivel inicial = 0)
-	
-	seed32 = time(NULL);		// fija semilla de números aleatorios
+	unsigned char level = 0;		// nivel del juego (nivel inicial = 0)	
+	seed32 = time(NULL);
 	consoleDemoInit();			// inicialización de pantalla de texto
-	printf("candyNDS (prueba tarea 1A)\n");
+	printf("candyNDS (prueba tarea 1B)\n");
 	printf("\x1b[38m\x1b[1;0H  nivel: %d", level);
+
+	inicializa_matriz(matrix, level);	
+	escribe_matriz_testing(matrix);
 
 	do							// bucle principal de pruebas
 	{
-		inicializa_matriz(matrix, level);
-		escribe_matriz_testing(matrix);
-		retardo(3);
-		printf("\x1b[39m\x1b[3;8H (pulse A o B)");
+		if (hay_combinacion(matrix))
+		{
+			printf("\x1b[39m\x1b[3;0H hay combinacion: SI");
+		}
+		else
+		{
+			printf("\x1b[39m\x1b[3;0H hay combinacion: NO");
+			recombina_elementos(matrix);
+			escribe_matriz_testing(matrix);
+			
+		}	
+		retardo(3);			
+
 		do
-		{	swiWaitForVBlank();
+		{
+			swiWaitForVBlank();
 			scanKeys();					// esperar pulsación tecla 'A' o 'B'
+
 		} while (!(keysHeld() & (KEY_A | KEY_B)));
+
 		printf("\x1b[3;8H              ");
 		retardo(3);
+
 		if (keysHeld() & KEY_A)			// si pulsa 'A',
-		{								// pasa a siguiente nivel
-			level = (level + 1) % MAXLEVEL;
-			printf("\x1b[38m\x1b[1;8H %d", level);
+		{														
+				level = (level + 1) % MAXLEVEL;
+// del número de mapa actual,
+				printf("\x1b[38m\x1b[1;8H %d", level); // cambiar el mapa actual
+				inicializa_matriz(matrix, level);
+				escribe_matriz_testing(matrix);
+			
 		}
-	} while (1);
-	return(0);
+
+	} while (1);		// bucle de pruebas
+	
 }
 
 
