@@ -219,13 +219,11 @@ baja_verticales:
 		
 		@; Si hay un elemento superior válido, entonces hay una bajada vertical
 		.LSiElementValid:
-		@; if (es_elemento_basico(valorSup))
 		and r0, r7, #ULTIMS_BITS
-		cmp r0, #0      @; ¿es 0?
-		beq .LFiSiElementValid
-		cmp r0, #7      @; ¿es 7?
-		beq .LFiSiElementValid
-		@; Bajo el elemento
+		cmp r0, #1
+		blt .LFiSiElementValid     @; menor que 1 → no válido
+		cmp r0, #6
+		bgt .LFiSiElementValid     @; mayor que 6 → no válido		@; Bajo el elemento
 		and r0, r7, #ULTIMS_BITS
 		bic r7, #ULTIMS_BITS
 		add r5, r0
@@ -293,10 +291,11 @@ baja_laterales:
 		sub r8, r6, #COLUMNS-1
 		ldrb r7, [r4, r8]
 		and r0, r7, #ULTIMS_BITS
-		cmp r0, #0
-		beq .LNoEsBasico
-		cmp r0, #7
-		beq .LNoEsBasico
+		cmp r0, #1
+		blt .LNoEsBasico      @; menor que 1 → no válido
+		cmp r0, #6
+		bgt .LNoEsBasico      @; mayor que 6 → no válido
+
 		mov r1, #1
 		b .LSigue
 		.LNoEsBasico:
@@ -308,11 +307,12 @@ baja_laterales:
 		ble .LFiEsValid
 		sub r8, r6, #COLUMNS+1
 		ldrb r7, [r4, r8]
-		and r0, r7, #ULTIMS_BITS       @ r0 = r7 & 7
-        cmp r0, #0
-        beq .LEsquerraNoBasic
-        cmp r0, #7
-        beq .LEsquerraNoBasic
+		and r0, r7, #ULTIMS_BITS
+		cmp r0, #1
+		blt .LEsquerraNoBasic
+		cmp r0, #6
+		bgt .LEsquerraNoBasic
+
         mov r0, #1
         b .Lesquerrafet
 		.LEsquerraNoBasic:
