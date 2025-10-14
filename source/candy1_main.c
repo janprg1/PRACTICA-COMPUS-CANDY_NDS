@@ -6,9 +6,9 @@
 	(2º curso de Grado de Ingeniería Informática - ETSE - URV)
 	
 	Analista-programador: santiago.romani@urv.cat
-	Programador 1: xxx.xxx@estudiants.urv.cat
+	Programador 1: jan.bofarull@estudiants.urv.cat
 	Programador 2: yyy.yyy@estudiants.urv.cat
-	Programador 3: zzz.zzz@estudiants.urv.cat
+	Programador 3: ernestode.vicente-tutor@estudiants.urv.cat
 	Programador 4: uuu.uuu@estudiants.urv.cat
 
 ------------------------------------------------------------------------------*/
@@ -443,79 +443,59 @@ void procesa_sugerencia(char mat[][COLUMNS], unsigned short lap)
 
 
 
-/* Programa principal: control general del juego */
+
+/* ---------------------------------------------------------------- */
+/*  candy1_main.c : función principal main() para test de tarea 1B  */				
+/* ---------------------------------------------------------------- */
 
 int main(void)
-{ 
-	seed32 = time(NULL); 
-	unsigned char level = 0;     // nivel del juego
-	unsigned short lapse = 0;    // contador de inactividad
-	unsigned char sugerida = 0;  // bandera de si ya se mostró sugerencia
+{
+	unsigned char level = 0;		// nivel del juego (nivel inicial = 0)	
+	seed32 = time(NULL);
+	consoleDemoInit();			// inicialización de pantalla de texto
+	printf("candyNDS (prueba tarea 1B)\n");
+	printf("\x1b[38m\x1b[1;0H  nivel: %d", level);
 
-	consoleDemoInit(); 
-	printf("candyNDS (prueba tarea 1H)\n"); 
-	printf("\x1b[38m\x1b[1;0H nivel: %d", level);  
+	inicializa_matriz(matrix, level);	
+	escribe_matriz_testing(matrix);
 
-	do // bucle principal de niveles
-	{ 
-		// Cargar el mapa del nivel actual
-		copia_matriz(matrix, mapas[level]);  
-		escribe_matriz_testing(matrix); 
-		
+	do							// bucle principal de pruebas
+	{
 		if (hay_combinacion(matrix))
-			printf("\x1b[39m\x1b[3;0Hhay combinacion: SI"); 
+		{
+			printf("\x1b[39m\x1b[3;0H hay combinacion: SI");
+		}
 		else
-			printf("\x1b[39m\x1b[3;0Hhay combinacion: NO"); 
+		{
+			printf("\x1b[39m\x1b[3;0H hay combinacion: NO");
+			recombina_elementos(matrix);
+			escribe_matriz_testing(matrix);
+			
+		}	
+		retardo(3);			
 
-		retardo(3); 
-		printf("\x1b[39m\x1b[3;19H (pulse A/B)"); 
-
-		lapse = 0;
-		sugerida = 0;
-
-		while (1)
-		{ 
+		do
+		{
 			swiWaitForVBlank();
-			scanKeys();
+			scanKeys();					// esperar pulsación tecla 'A' o 'B'
 
-			// Si el usuario pulsa algo, se resetea el contador
-			if (keysHeld() & (KEY_A | KEY_B | KEY_TOUCH))
-			{
-				lapse = 0;
-				sugerida = 0;
-			}
-			else
-			{
-				lapse++; // Incrementa tiempo de inactividad
-			}
+		} while (!(keysHeld() & (KEY_A | KEY_B)));
 
-			// Cuando hay combinaciones y el usuario no toca nada:
-			if (hay_combinacion(matrix))
-			{
-				if (lapse == T_INACT) // 192 frames ≈ 3 s
-				{
-					procesa_sugerencia(matrix, lapse);
-					sugerida = 1;
-				}
-				else if (sugerida && (lapse % T_MOSUG == 0)) // volver a parpadear cada 64 frames
-				{
-					procesa_sugerencia(matrix, lapse);
-				}
-			}
+		printf("\x1b[3;8H              ");
+		retardo(3);
 
-			// Salir del bucle cuando pulse A o B
-			if (keysDown() & (KEY_A | KEY_B))
-				break;
+		if (keysHeld() & KEY_A)			// si pulsa 'A',
+		{														
+				level = (level + 1) % MAXLEVEL;
+// del número de mapa actual,
+				printf("\x1b[38m\x1b[1;8H %d", level); // cambiar el mapa actual
+				inicializa_matriz(matrix, level);
+				escribe_matriz_testing(matrix);
+			
 		}
 
-		// Transición de nivel si pulsa A
-		if (keysHeld() & KEY_A)
-		{ 
-			level = (level + 1) % MAXLEVEL; 
-			printf("\x1b[38m\x1b[1;8H %d", level); 
-		}
-
-	} while (1);
-
-	return 0; 
+	} while (1);		// bucle de pruebas
+	
 }
+
+
