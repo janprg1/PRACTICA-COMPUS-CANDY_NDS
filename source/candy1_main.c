@@ -443,6 +443,7 @@ void procesa_sugerencia(char mat[][COLUMNS], unsigned short lap)
 
 
 
+
 /* ---------------------------------------------------------------- */
 /*  candy1_main.c : función principal main() para test de tarea 1B  */				
 /* ---------------------------------------------------------------- */
@@ -496,6 +497,5 @@ int main(void)
 	} while (1);		// bucle de pruebas
 	
 }
-
 
 
