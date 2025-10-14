@@ -130,11 +130,68 @@ hay_secuencia:
 @;		R0 = dirección base de la matriz de juego
 @;		R1 = dirección de la matriz de marcas
 	.global elimina_secuencias
-elimina_secuencias:
-		push {lr}
-		
-		
-		pop {pc}
+	elimina_secuencias:
+		push {r0-r9, lr}
+
+		@ r0 = matriz de juego
+		@ r1 = matriz de marcas
+
+		@ 1. Inicializar matriz de marcas a 0
+		mov r6, #0
+		mov r8, #0
+	.Lclear_marcas:
+		strb r6, [r1, r8]
+		add r8, #1
+		cmp r8, #ROWS*COLUMNS
+		blo .Lclear_marcas
+
+		@ 2. Marcar secuencias
+		bl marca_horizontales
+		bl marca_verticales
+
+		@ 3. Recorrer matriz
+		mov r6, r0      @ r6 = matriz de juego
+		mov r7, r1      @ r7 = matriz de marcas
+		mov r1, #0      @ fila
+		mov r8, #COLUMNS
+
+	.Lfor_filas:
+		cmp r1, #ROWS
+		bhs .Lfin       @ salir cuando filas completas
+		mov r2, #0      @ columna
+
+	.Lfor_cols:
+		cmp r2, #COLUMNS
+		bhs .Lnext_fila
+
+		mla r5, r1, r8, r2      @ offset = fila*NC + col
+		ldrb r3, [r7, r5]       @ leer marca
+		cmp r3, #0
+		beq .Lskip              @ si no está marcada, saltar
+
+		ldrb r4, [r6, r5]       @ leer celda del juego
+		tst r4, #0x10           @ ¿tiene bit de gelatina doble?
+		beq .Lquita_simple
+
+		mov r4, #8              @ reducir a simple
+		b .Lescribe
+
+	.Lquita_simple:
+		mov r4, #0              @ eliminar pieza
+
+	.Lescribe:
+		strb r4, [r6, r5]       @ escribir en la matriz
+
+	.Lskip:
+		add r2, #1
+		b .Lfor_cols
+
+	.Lnext_fila:
+		add r1, #1
+		b .Lfor_filas
+
+	.Lfin:
+		pop {r0-r9, pc}
 
 
 	
@@ -156,10 +213,87 @@ elimina_secuencias:
 @;		R0 = dirección base de la matriz de juego
 @;		R1 = dirección de la matriz de marcas
 marca_horizontales:
-		push {lr}
+		push {r0-r12,lr}
+		
+		mov r4, r1							@; R4 = direccion matriz MARCAS
+		mov r1, #0							@; R1 = i
+		mov r2, #0							@; R2 = j
+		mov r6, #COLUMNS-2					@; R6 = Columnas-2 (ex.7)
+		mov r11, #COLUMNS					@; R11 = Columnas (ex.9)
+		mov r12, #1							@; R12 = num_sec
+		
+	.L1for1:
+		cmp r1, #ROWS					
+		bhs .L1fifor1
+		mov r2, #0
+	.L1for2:
+		cmp r2, #COLUMNS
+		bhs .L1fifor2
+		
+		mla r5, r1, r11, r2					@; R5 = i * NC + j
+		add r7, r0, r5       				@; R7 = direccion matriz JUEGO + R5
+		
+		ldrb r9, [r7]						@; R9 = contenido matriz JUEGO
+		
+	.L1if1:
+		tst r9, #0x07						@; Comprobar que el valor no sea un espacio vacio
+		beq .L1fiif1
+		mvn r9, r9
+		tst r9, #0x07  						@; Comprobar que no sea un bloque solido o un hueco
+		beq .L1fiif1		
+		
+	.L1if2:
+		cmp r2, r6							@; Comprobar que no este en las 2 ultimas columnas
+		bhs .L1fiif2
+		
+		mov r10, r0							@;  R10 = Guardar direccion matriz JUEGO
+		mov r3, #0							@;  R3 = indicar direccion (este:0)
+		bl cuenta_repeticiones
+	
+	.L1if3:
+		cmp r0, #3							@; Comprobar numero de repeticiones
+		blo .L1else3
+		
+		add r0, #-1							
+		add r3, r0, r2						@; R3 = num de repeticiones(>=3) + j
+		
+	.L1while:								@; Bucle para numerar las secuencias
+		cmp r2, r3							@; de j a j+num de repeticiones
+		bhi .L1fiwhile
+
+		mla r5, r1, r11, r2					@; R5 = i * NC + j
+		add r8, r4, r5						@; R8 = Direccion matriz Marcas + R5
+		
+		strb r12, [r8]
+		
+		add r2, #1
+		b .L1while
+
+	.L1fiwhile:
+		add r12, #1							@; R12 = num_sec + 1
+		add r2, #-1
+		b .L1fiif3
+
+	.L1else3:
+		add r0,#-1							
+		add r2, r0							@; R2 = j + num de repeticiones(<=2)
+	.L1fiif3:
+		mov r0, r10							@; R0 = Recuperar direccion matriz JUEGO
+
+	.L1fiif2:
+	.L1fiif1:
+		add r2, #1
+		b .L1for2
+	.L1fifor2:
+		add r1, #1
+		b .L1for1
+	.L1fifor1:
+		
+		ldr r11,=num_sec
+		strb r12, [r11]						@; Guardar num_sec
 		
 		
-		pop {pc}
+		pop {r0-r12,pc}
 
 
 
@@ -181,10 +315,112 @@ marca_horizontales:
 @;		R0 = dirección base de la matriz de juego
 @;		R1 = dirección de la matriz de marcas
 marca_verticales:
-		push {lr}
+		push {r0-r12,lr}
+		
+		mov r4, r1        					@; R4 = direccion matriz MARCAS
+		mov r1, #0							@; R1 = i
+		mov r2, #0							@; R2 = j
+		mov r6, #ROWS-2						@; R6 = Filas-2 (ex.7)	
+		mov r11, #COLUMNS					@; R11 = Columnas (ex.9)		
+		ldr r5, =num_sec					@; Recuperar valor global de num_sec	
+		ldrb r12, [r5]							 
+		
+.L2for1:
+		cmp r1, #ROWS
+		bhs .L2fifor1
+		mov r2, #0
+.L2for2:
+		cmp r2, #COLUMNS
+		bhs .L2fifor2
+		
+		mla r5, r1, r11, r2					@; R5 = i * NC + j
+		add r7, r0, r5       				@; R7 = Direccion matriz Marcas + R5
+		
+		ldrb r9, [r7]						@; R9 = Contenido matriz juego
+		
+.L2if1:
+		tst r9, #0x07						@; Comprobar que el valor no sea un espacio vacio
+		beq .L2fiif1
+		mvn r9, r9
+		tst r9, #0x07  						@; Comprobar que no sea un bloque solido o un hueco
+		beq .L2fiif1		
+		
+.L2if2:
+		cmp r1, r6							@; Comprobar que no este en las ultimas 2 filas
+		bhs .L2fiif2
+		
+		mov r10, r0							@; R10 = Guardar direccion matriz JUEGO
+		mov r3, #1							@; R3 = indicar direccion(sur:1)
+		bl cuenta_repeticiones
+	
+.L2if3:
+		cmp r0, #3
+		blo .L2else3
+		
+		add r0, #-1
+		add r3, r0, r1						@; R3 = num de repeticiones(>=3) + i
+		
+		mov r7, r1							@; R7 = copia aux de i
+		
+.L2while1:									@; Bucle para comprobar si intercepta con una secuencia horizontal
+		cmp r7, r3
+		bhi .L2fiwhile1
+		
+		mla r5, r7, r11, r2
+		add r8, r4, r5
+		
+		ldrb r9, [r8]
+		cmp r9, #0
+		movne r12, r9
+		bne .L2fiwhile1
+		
+		add r7, #1
+		b .L2while1
+.L2fiwhile1:
 		
 		
-		pop {pc}
+.L2while2:									@; Bucle para numerar las secuencias
+		cmp r1, r3							@; de i a i+num de repeticiones
+		bhi .L2fiwhile2
+
+		mla r5, r1,r11,r2					@; R5 = i * NC + j
+		add r8, r4, r5						@; R8 = Direccion matriz Marcas + R5
+		
+		strb r12, [r8]
+		
+		add r1, #1
+		b .L2while2
+
+.L2fiwhile2:
+
+		ldr r7, =num_sec
+		ldrb r8, [r7]						@; Comprobar num secuencia guardada con el utilizado
+		cmp r8, r12
+		addeq r12, #1
+		movne r12, r8
+		add r0, #1
+		sub r1, r0
+		b .L2fiif3
+
+.L2else3:
+.L2fiif3:
+		mov r0, r10							@; R0 = Recuperar direccion matriz JUEGO
+		ldr r7, =num_sec
+		strb r12, [r7]						@; Guardar num_sec
+
+.L2fiif2:
+.L2fiif1:
+		add r2, #1
+		b .L2for2
+.L2fifor2:
+		add r1, #1
+		b .L2for1
+.L2fifor1:
+		
+		ldr r11,=num_sec
+		strb r12, [r11]
+		
+		pop {r0-r12,pc}
 
 
 
