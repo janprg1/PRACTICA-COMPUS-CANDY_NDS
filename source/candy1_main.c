@@ -446,35 +446,76 @@ void procesa_sugerencia(char mat[][COLUMNS], unsigned short lap)
 /* Programa principal: control general del juego */
 
 int main(void)
-{
-	unsigned char level = 0;		// nivel del juego (nivel inicial = 0)
-	
-	consoleDemoInit();			// inicialización de pantalla de texto
-	printf("candyNDS (prueba tarea 1G)\n");
-	printf("\x1b[38m\x1b[1;0H  nivel: %d", level);
+{ 
+	seed32 = time(NULL); 
+	unsigned char level = 0;     // nivel del juego
+	unsigned short lapse = 0;    // contador de inactividad
+	unsigned char sugerida = 0;  // bandera de si ya se mostró sugerencia
 
-	do							// bucle principal de pruebas
-	{
-		copia_matriz(matrix, mapas[level]);	// sustituye a inicializa_matriz()
-		escribe_matriz_testing(matrix);
-		if (hay_combinacion(matrix))			// si hay combinaciones
-			printf("\x1b[39m\x1b[3;0Hhay combinacion: SI");
+	consoleDemoInit(); 
+	printf("candyNDS (prueba tarea 1H)\n"); 
+	printf("\x1b[38m\x1b[1;0H nivel: %d", level);  
+
+	do // bucle principal de niveles
+	{ 
+		// Cargar el mapa del nivel actual
+		copia_matriz(matrix, mapas[level]);  
+		escribe_matriz_testing(matrix); 
+		
+		if (hay_combinacion(matrix))
+			printf("\x1b[39m\x1b[3;0Hhay combinacion: SI"); 
 		else
-			printf("\x1b[39m\x1b[3;0Hhay combinacion: NO");
-		retardo(3);
-		printf("\x1b[39m\x1b[3;19H (pulse A/B)");
-		do
-		{	swiWaitForVBlank();
-			scanKeys();					// esperar pulsación tecla 'A' o 'B'
-		} while (!(keysHeld() & (KEY_A | KEY_B)));
-		printf("\x1b[3;0H                               ");
-		retardo(3);
-		if (keysHeld() & KEY_A)			// si pulsa 'A',
-		{								// pasa a siguiente nivel
-			level = (level + 1) % MAXLEVEL;
-			printf("\x1b[38m\x1b[1;8H %d", level);
-		}
-	} while (1);
-	return(0);
-}
+			printf("\x1b[39m\x1b[3;0Hhay combinacion: NO"); 
 
+		retardo(3); 
+		printf("\x1b[39m\x1b[3;19H (pulse A/B)"); 
+
+		lapse = 0;
+		sugerida = 0;
+
+		while (1)
+		{ 
+			swiWaitForVBlank();
+			scanKeys();
+
+			// Si el usuario pulsa algo, se resetea el contador
+			if (keysHeld() & (KEY_A | KEY_B | KEY_TOUCH))
+			{
+				lapse = 0;
+				sugerida = 0;
+			}
+			else
+			{
+				lapse++; // Incrementa tiempo de inactividad
+			}
+
+			// Cuando hay combinaciones y el usuario no toca nada:
+			if (hay_combinacion(matrix))
+			{
+				if (lapse == T_INACT) // 192 frames ≈ 3 s
+				{
+					procesa_sugerencia(matrix, lapse);
+					sugerida = 1;
+				}
+				else if (sugerida && (lapse % T_MOSUG == 0)) // volver a parpadear cada 64 frames
+				{
+					procesa_sugerencia(matrix, lapse);
+				}
+			}
+
+			// Salir del bucle cuando pulse A o B
+			if (keysDown() & (KEY_A | KEY_B))
+				break;
+		}
+
+		// Transición de nivel si pulsa A
+		if (keysHeld() & KEY_A)
+		{ 
+			level = (level + 1) % MAXLEVEL; 
+			printf("\x1b[38m\x1b[1;8H %d", level); 
+		}
+
+	} while (1);
+
+	return 0; 
+}
