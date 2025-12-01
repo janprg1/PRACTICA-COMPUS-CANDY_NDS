@@ -1,16 +1,16 @@
 ﻿/*------------------------------------------------------------------------------
 
-	$ candy1_sopo.c $
+	$ candy2_sopo.c $
 
-	Funciones de soporte para el programa principal (ver 'candy1_main.c')
+	Funciones de soporte para el programa principal (ver 'candy2_main.c')
 	
 	Analista-programador: santiago.romani@urv.cat
-	Programador auxiliar: pere.millan@urv.cat
-
+	programador auxiliar: pere.millan@urv.cat
+	
 ------------------------------------------------------------------------------*/
 #include <nds.h>
 #include <stdio.h>
-#include "candy1_incl.h"
+#include "candy2_incl.h"
 
 
 /* variables globales */
@@ -24,16 +24,17 @@ unsigned char num_pun = 0;		// número de puntuaciones
 /* escribe_matriz_h(*mat, debug): escribe por pantalla de texto de la NDS el
 	contenido de la matriz usando secuencias escape de posicionamiento en fila
 	y columna (\x1b['fila';'columna'H), donde 'fila' es una coordenada entre 0
-	y 23, y 'columna' es una coordenada entre 0 y 31, y la posición (0,0) 
+	y 23, y columna es una coordenada entre 0 y 31, y la posición (0,0) 
 	corresponde a la casilla superior izquierda; además, se usa la secuencia de
 	escape (\x1b['color'm) para cambiar el color del texto, donde 'color' es un
-	código de color de la librería NDS;
+	es un código de color de la librería NDS;
  
 	Oct/2020: versió adaptada per a debug/test *** pere.millan@urv.cat ***
 	Jul/2021: versió híbrida, amb paràmetre debug=0, visualització normal,
-				amb paràmetre debug=1, visualització per a test/depuració
+				amb paràmetre debug=1, visualització per a depuració
 	Jul/2024: s'ha eliminat un espai en blanc darrera de cada símbol '_', '#',
 				':' i el codi d'element (amb color) o bloc sòlid '7'.
+
 */
 void escribe_matriz_h(char mat[][COLUMNS], int debug)
 {
@@ -71,7 +72,7 @@ void escribe_matriz_h(char mat[][COLUMNS], int debug)
 	}
 }
 
-/* escribe_matriz(*mat): llama a escribe_matriz_h() con visualitzación normal.
+/* escribe_matriz(*mat): llama a escribe_matriz_h() con visualitzación normal
 */
 void escribe_matriz(char mat[][COLUMNS])
 {
@@ -103,6 +104,9 @@ unsigned char cuenta_gelatinas(char mat[][COLUMNS])
 			}							// de los bits 4..3 (código gelatina)
 		}
 	}
+	if (count > 0) activa_timer2();
+	else desactiva_timer2();
+	
 	return(count);
 }
 
@@ -142,38 +146,26 @@ int procesa_touchscreen(char mat[][COLUMNS],
 	unsigned char result = 0;
 
 	touchRead(&posXY);					// captura posición (x,y), en píxeles
-	v1X = (posXY.px >> 3) / 2;			// convierte a posición de matriz
-	if (v1X >= COLUMNS)
-	{ v1X = COLUMNS-1; }				// limitando coordenadas
-	v1Y = ((posXY.py >> 3)-DFIL) / 2;
-	if (v1Y >= ROWS)					// si supera ROWS significa que la resta 
-	{									// (posXY.py >> 3)-DFIL ha resultado 
-		v1Y = 0;						// negativa, aunque al ser posXY.py un 
-	}									// natural, el resultado será 255 (aprox.)
-	v2X = v1X;	v2Y = v1Y;				// iguala coordenadas segunda pos.
+	v1X = posXY.px / MTWIDTH;			// convierte a posición matriz
+	v1Y = posXY.py / MTHEIGHT;
+	v2X = v1X;	v2Y = v1Y;				// igualar coordenadas segunda pos.
 	while ((keysHeld() & KEY_TOUCH) &&		// mientras se esté tocando
-			(v2X == v1X) && (v2Y == v1Y))	// y no haya nueva posición
+			(v2X == v1X) && (v2Y == v1Y))	// y no hay nueva posición
 	{
 		touchRead(&posXY);					// captura nuevas posiciones
-		v2X = (posXY.px >> 3) / 2;
-		v2Y = ((posXY.py >> 3)-DFIL) / 2;
-		if ((v2X >= COLUMNS) || (v2Y >= ROWS))	// si fuera de límites,
-		{	v2X = v1X; 						// iguala coordenadas
-			v2Y = v1Y;
-		}
+		v2X = posXY.px / MTWIDTH;
+		v2Y = posXY.py / MTHEIGHT;
 		swiWaitForVBlank();
 		scanKeys();
 	}
 	if ((v2X != v1X) || (v2Y != v1Y))		// si tenemos nueva posición
 	{
-		if (v2X > v1X) v2X = v1X + 1;		// limita rango de movimientos
-		else if (v2X < v1X)
-		{ v2X = v1X - 1; }
+		if (v2X > v1X) v2X = v1X + 1;		// limitar rango movimientos
+		else if (v2X < v1X) v2X = v1X - 1;
 		if (v2Y > v1Y) v2Y = v1Y + 1;
-		else if (v2Y < v1Y)
-		{ v2Y = v1Y - 1; }
+		else if (v2Y < v1Y) v2Y = v1Y - 1;
 		if ((v2X != v1X) && (v2Y != v1Y))	// si hay movimiento en dos
-		{	v2Y = v1Y;	}					// direcciones, priorizar X
+			v2Y = v1Y;						// direcciones, priorizar X
 			
 		temp1 = mat[v1Y][v1X] & 0x7;
 		temp2 = mat[v2Y][v2X] & 0x7;
@@ -192,7 +184,8 @@ int procesa_touchscreen(char mat[][COLUMNS],
 	(variable global) los códigos de los 3 elementos contenidos en las
 	posiciones de la matriz de juego indicadas en el parámetro psug[6],
 	para luego colocar un código -1  en dichas posiciones, lo cual provocará
-	que la función escribe_matriz() muestre un carácter '_' (elemento oculto).*/
+	que la función escribe_matriz() muestre un carácter '_' (elemento oculto);
+	inicia el timer 1 para reproducir el efecto de escalado de los sprites. */
 void oculta_elementos(char mat[][COLUMNS], unsigned char psug[6])
 {
 	unsigned char i, x, y;
@@ -201,23 +194,30 @@ void oculta_elementos(char mat[][COLUMNS], unsigned char psug[6])
 	{
 		x = psug[i*2];
 		y = psug[i*2 + 1];
+		activa_escalado(y, x);
 		ele_sug[i] = mat[y][x];
 		mat[y][x] = -1;
 	}
+	activa_timer1(0);
+	while (timer1_on) swiWaitForVBlank();
 }
 
 
 /* muestra_elementos(*mat, *psug): restablece los códigos de los 3 elementos
 	contenidos en las posiciones de la matriz de juego indicadas en el parámetro
-	psug[6], según el contenido del vector ele_sug[3] (variable global). */
+	psug[6], según el contenido del vector ele_sug[3] (variable global);
+	inicia el timer 1 para reproducir el efecto de escalado de los sprites. */
 void muestra_elementos(char mat[][COLUMNS], unsigned char psug[6])
 {
 	unsigned char i, x, y;
 	
+	activa_timer1(1);
+	while (timer1_on) swiWaitForVBlank();
 	for (i = 0; i < 3; i++)
 	{
 		x = psug[i*2];
 		y = psug[i*2 + 1];
+		desactiva_escalado(y, x);
 		mat[y][x] = ele_sug[i];
 	}
 }
@@ -226,7 +226,8 @@ void muestra_elementos(char mat[][COLUMNS], unsigned char psug[6])
 
 /* intercambia_posiciones(*mat, p1X, p1Y, p2X, p2Y): intercambia los
 	elementos de las dos posiciones de la matriz que indican los parámetros,
-	conservando las características de gelatina en las posiciones originales. */
+	conservando las características de gelatina en las posiciones originales;
+	inicia el timer 0 para reproducir el movimiento de los sprites.*/
 void intercambia_posiciones(char mat[][COLUMNS],
 							unsigned char p1X, unsigned char p1Y,
 							unsigned char p2X, unsigned char p2Y)
@@ -235,6 +236,11 @@ void intercambia_posiciones(char mat[][COLUMNS],
 	char temp2 = mat[p2Y][p2X];
 	mat[p1Y][p1X] = (temp2 & 0x7) | (temp1 & 0xF8);
 	mat[p2Y][p2X] = (temp1 & 0x7) | (temp2 & 0xF8);
+
+	activa_elemento(p1Y, p1X, p2Y, p2X);
+	activa_elemento(p2Y, p2X, p1Y, p1X);
+	activa_timer0(1);
+	while (timer0_on) swiWaitForVBlank();
 }
 
 
