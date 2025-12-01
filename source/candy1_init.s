@@ -87,11 +87,10 @@ bucle_columnes:
     b seguent_casella
 
 generar_aleatori:
-    mov r0, #7                     @; Ajustar rang per a generar número
+    mov r0, #6                     @; Ajustar rang per a generar número
     bl mod_random
-	cmp r0, #CASELLA_BUIDA         @; Comprovar si el número és 0 
-	beq generar_aleatori
-    orr r8, r8, r0                 @; Afegir possible màscara de gelatina
+	add r0, r0, #1
+    orr r0, r8, r0                 @; Afegir possible màscara de gelatina
     strb r0, [r9, r7]              @; Guardar valor aleatori a la matriu destí
 
     @; Comprovació de repeticions (OEST)
