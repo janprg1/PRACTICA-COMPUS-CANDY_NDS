@@ -1,8 +1,8 @@
 ﻿@;=                                                          	     	=
 @;=== candy1_init.s: rutinas para inicializar la matriz de juego	  ===
 @;=                                                           	    	=
-@;=== Programador tarea 1A: xxx.xxx@estudiants.urv.cat				  ===
-@;=== Programador tarea 1B: yyy.yyy@estudiants.urv.cat				  ===
+@;=== Programador tarea 1A: jan.bofarull@estudiants.urv.cat			  ===
+@;=== Programador tarea 1B: jan.bofarull@estudiants.urv.cat			  ===
 @;=                                                       	        	=
 
 
@@ -44,7 +44,7 @@
 @;		R1 = número de mapa de configuración
 @;		MÀSCARES:
 
-		CASELLA_BUIDA = 0x00 @; 0
+		CASELLA_BUIDA = 0x00 
 		EST = 0x00
 		SUD = 0x01
 		OEST = 0x02
@@ -52,7 +52,7 @@
 		
 	.global inicializa_matriz
 inicializa_matriz:
-		push {r0-r11, lr}              @; Guardar registres i LR
+	push {r0-r11, lr}              
 
     ldr r11, =mapas                @; Adreça base de 'mapas'
     mov r9, #(ROWS*COLUMNS)        @; 81 elements per mapa
@@ -89,7 +89,7 @@ bucle_columnes:
 generar_aleatori:
     mov r0, #6                     @; Ajustar rang per a generar número
     bl mod_random
-	add r0, r0, #1
+	add r0, r0, #1				   @; Sumem 1 al valor resultant de mod random 
     orr r0, r8, r0                 @; Afegir possible màscara de gelatina
     strb r0, [r9, r7]              @; Guardar valor aleatori a la matriu destí
 
@@ -122,7 +122,7 @@ seguent_fila:
     b bucle_files
 
 fi:
-    pop {r0-r11, pc}               @; Restaurar registres i tornar
+    pop {r0-r11, pc}               
 
 
 @;TAREA 1B;
@@ -143,197 +143,145 @@ fi:
 @;			y con posibles combinaciones
 @;	Parámetros:
 @;		R0 = dirección base de la matriz de juego
-@;		MÀSCARES:
 
-		BITBAIX = 0x07
-		BITS816 = 0x18
-		
-	.global recombina_elementos
+	BIT5 = 0x20
+	VALORS = 0x07
+	GELATINES = 0x18
+	
+   .global recombina_elementos
 recombina_elementos:
 
-    push {r0-r12, lr}          
-
-.Linici:
-
-@; Inicialitzacio de variables 
-
-    mov r1, #0				 @; Inicialitzar l'índex actual de la matriu a 0
-	mov r12, r0              @; Guardar el valor original de r0 obtingut per parametre
+	push {r0-r12, lr}                            
 	
-	ldr r7, =mat_recomb1     @; Carregar l'adreça de la matriu de recombinació 1
-    ldr r8, =mat_recomb2     @; Carregar l'adreça de la matriu de recombinació 2
+	@;Cargamos direcciones de las matricecs necesarias y las columnas
+	mov r6, #COLUMNS 
+	@; R1 y R2 para filas y columnas, R3 para pasar parametro para funciones, siguiente libre r4,r5.
+    ldr r4, =mat_recomb1                  
+    ldr r5, =mat_recomb2               
+    
+.LInici:     
+	mov r11, #0                           @; Contador de fallos para evitar error de matrices compejas
+    mov r1, #0                            @; fila actual
+    mov r2, #0                            @; columna actual
+   
+.LBucleFilas:                             @; Recorrido por filas (fase de inicialización)
+    mov r2, #0                            @; Reinicio de columna al empezar una fila
+   
+.LBucleCols:                              @; Recorrido por columnas (fase de inicialización)
+    mul r8, r1, r6	                      @; pos=fila*COLUMNS + columna
+	add r8, r8, r2
+    ldrb r9, [r0, r8]                     @; r6 = matriz_original[pos]
+    
+    and r7, r9, #VALORS                   @; r7 = valors (0-7)
+    cmp r7, #7                            @; ¿bloque especial (sólido/hueco)?
+    bne .LValor                           @; Si no es 7, tratar como valor normal
+   
+    mov r7, #0                            
+    strb r7, [r4, r8]                     @; mat_recomb1[pos] = 0
+    orr r9, r9, #BIT5                     @; Señaliza el valor con el bit 5 en alto
+    strb r9, [r5, r8]                     @; mat_recomb2[pos] = valor marcado
+    b .LAvanza                       	  @; Siguiente celda (salto local) 
+
+.LValor:          
+	@; Gestión de valores normales
+    strb r7, [r4, r8]                     @; En el auxiliar 1 guardamos solo el “simple”
+    cmp r7, #0                            @; elemento simple = 0?
+	orreq r9, r9, #BIT5 
+	streqb r9, [r5, r8]                   @; mat_recomb2[pos] = valor marcado
+    
+    and r7, r9, #GELATINES                @; Extraer “gelatina” (bits 3..4)
+    strb r7, [r5, r8]                     @; mat_recomb2[pos] = solo gelatina 
+    
+.LAvanza:                                
+    add r2, #1                            @; col++
+    cmp r2, #COLUMNS                      @; ¿quedan columnas?
+    blt .LBucleCols                       @; Sí -> seguir en la fila
+    
+    add r1, #1                            @; fila++
+    cmp r1, #ROWS                         @; ¿quedan filas?
+    blt .LBucleFilas                      @; Sí -> siguiente fila
+    
+    mov r12, r0                           @; Guardar puntero a la matriz original
+	mov r1, #0                            @; Reinicio de fila para la fase de recombinación
+    mov r2, #0                            @; Reinicio de col para recombinación
+    
+.LFilas2:                                 @; Bucle flias
+    mov r2, #0                            @; Reset de columna al empezar fila
+   
+.LCols2:                                  @; Bucle columnas
+    mla r8, r1, r6, r2                    @; r8 = índice lineal actual
+    ldrb r9, [r5, r8]                     @; r6 = estado en mat_recomb2
+    
+    and r7, r9, #BIT5                     @; ¿bit 5 activo?
+    cmp r7, #0
+	andne r9, r9, #0x1F                   @; r6 &= 0x1F -> borra bit 5
+	strneb r9, [r5, r8]                   @; Guardar valor sin marca
+	bne .LAvanza2
+  
+.LAleatorio:                                  
+    mov r0, #COLUMNS*ROWS                 @; Límite superior del índice aleatorio
+    bl mod_random                        
+    mov r10, r0                           @; r10 = índice de origen
+    ldrb r7, [r4, r10]                    @; r7 = contenido del origen en auxiliar 1
+    cmp r7, #0                            @; ¿origen vacío?
+    beq .LAleatorio                       @; Reintentar si está vacío
+  
+    add r7, r9                            @; Combinar origen con destino
+    strb r7, [r5, r8]                     @; Escribir en mat_recomb2 en el destino
+    add r11, #1                           @; Incrementar intentos
+    cmp r11, #120                         @; ¿demasiados intentos?
+    beq .LInici                           @; Reiniciar el proceso si se atasca
+    
+	@; Comprobación de secuencias (oeste)
+    mov r0, r5                            @; r0 = puntero matriz de trabajo
+    mov r3, #2                            @; 2 = orientación oeste
+    bl cuenta_repeticiones              
+    cmp r0, #3                            @; ¿genera una secuencia mínima?
+    bhs .LAleatorio                       @; Si sí, probar con otro origen
 	
-    mov r2, #ROWS*COLUMNS    @; Carregar el nombre total de posicions de la matriu
+    @; Comprobación de secuencias (norte)
+    mov r0, r5                            @; r0 = puntero matriz de trabajo
+    mov r3, #3                            @; 3 = orientación norte
+    bl cuenta_repeticiones               
+    cmp r0, #3                            @; ¿genera una secuencia mínima?
+    bhs .LAleatorio                       @; Si sí, probar con otro origen
 	
-.Lfor:
-    cmp r1, r2				 @; Comprovar si s'ha recorregut tota la matriu
-    bhs .Lendfor			 @; Saltar si s'ha completat
-	
-    ldrb r6, [r12, r1]		 @; Carregar el valor de la posició actual de la matriu de joc sino s'ha completat
+    mov r3, #0                            @; r7 = 0 para borrar
+    strb r3, [r4, r10]                    @; mat_recomb1[origen] = 0
+    
+.LAvanza2:                                @; Avance en la fase de recombinación
+    add r2, #1                            @; col++
+    cmp r2, #COLUMNS                      @; ¿quedan columnas?
+    blt .LCols2                           @; Sí -> continuar
+    
+    add r1, #1                            @; fila++
+    cmp r1, #ROWS                         @; ¿quedan filas?
+    blt .LFilas2                          @; Sí -> siguiente fila
+  
+    @; Mat_recomb2 a mat_original
+    mov r1, #0                            @; fila = 0 para el copiado
+    mov r0, r12                           @; r0 = puntero a la matriz original (destino)
+    
+.LCpFilas:                                
+    mov r2, #0                            @; col = 0 en cada fila
+.LCpCols:                                 
+    mla r8, r1, r6, r2                    @; índice lineal = fila*COLUMNS + col
+    ldrb r4, [r5, r8]                     @; leer byte de mat_recomb2
+    strb r4, [r0, r8]                     @; escribir byte en la matriz original
 
-    mov r11, #0				 @; Inicialitzem variable a 0 per a posterior us
-	
-    tst r6, #BITBAIX		 @; Comprobem si els 3 ultims bits de r6 es una posiciio buida (0)
-    beq .Lguardar0			 @; Salta si els 3 bits son 0
-    beq .Lendif1			 @; Ha comprbat que son 0 els valors per tant saltem a la seguent posicio
-	
-    mvn r5, r6				 @; Intercanviem els 3 ultims valor de r6 amb r5 (111) --> (000) per a pposterior us del streqb
-
-    tst r5, #BITBAIX		 @; Comprobem si els 3 ultims bits intercanviats a r5, son un bloc solid (7)
-    streqb r11, [r7, r1]	 @; Si son 0 guardem el valor r11(0) a mat_recomb1
-    streqb r6, [r8, r1]		 @; Si son 0 guardem el valor de r6 a mat_recomb2
-    beq .Lendif1    		 @; Ha comprbat que son 1 els valors per tant saltem a la seguent posicio
-	
-@; Gurdem 0 si els 3 ultims bits de r6 son 0
-
-.Lguardar0:
-
-	strb r11, [r7, r1]	 	 @; Si son 0 guardem el valor r11(0) a mat_recomb1
-    strb r6, [r8, r1]		 @; Si son 0 guardem el valor de r6 a mat_recomb2
-	
-@; Guardem la base del element
-
-    and r11, r6, #BITBAIX    @; Agafar el codi bàsic de l'element (els primers 3 bits = 1-6)
-    strb r11, [r7, r1]		 @; Guardar el valor en la matriu de recombinació 1 a la posició actual
-	
-@; Guardar només la gelatina
-
-    and r11, r6, #BITS816	 @; Agafar la gelatina simple o doble de l'element (bits 4 i 5 = 8 i 16) (0001 1000)
-    strb r11, [r8, r1]		 @; Guardar el valor en la matriu de recombinació 2 a la posició actual  
-
-.Lendif1:
-    add r1, #1               @; Incrementar l'índex de la matriu
-    b .Lfor                  @; Tornar al principi del bucle per a seguir comprovant posicions
-
-.Lendfor:
-    mov r1, #0               @; Quan totes posicions son revisades, inicialitzar l'índex de files (i = 0)
-
-.Lfor3:
-    cmp r1, #ROWS            @; Comprovar si s'han recorregut totes les files
-    bhs .Lendfor3            @; Si hem acabat, sortir del bucle
-    mov r2, #0               @; Inicialitzar l'índex de columnes (j = 0)
-
-.Lfor4:
-    cmp r2, #COLUMNS         @; Comprovar si s'han recorregut totes les columnes
-    bhs .Lendfor4            @; Si hem acabat, sortir del bucle
-
-@; Carreguem la matriu[i][j]
-    mov r5, #COLUMNS		 @; Carreguem el numero de columnes maxim 
-    mla r4, r1, r5, r2       @; Calcular la posició: r4 = (i*columns) --> Et poses a la fila que vols +j per desplaçarte dins la fila
-    ldrb r6, [r12, r4]       @; Carregar el valor obtingut de la posició [i][j] de la matriu
-	
-@; Comprobem que el valor carregat no es una posicio vuida (0) ni un bloc solid (7)
-
-    tst r6, #BITBAIX	     @; Comprobem si els 3 ultims bits de r6 es una posiciio buida (0)
-    beq .Lendif2			 @; Ha comprbat que son 0 els valors per tant saltem a la seguent posicio
-	
-    mvn r11, r6				 @; Intercanviem els 3 ultims valor de r6 amb r11 ex:(000) --> (111)
-	
-    tst r11, #BITBAIX	     @; Comprobem si els 3 ultims bits intercanviat de r5 son un bloc solid (7)
-    beq .Lendif2			 @; Ha comprbat que son 1 els valors per tant saltem a la seguent posicio
-	
-    mov r6, #0
-    b .Lwhile1 
-	
-	
-.Lhaysecuencia:
-
-    strb r10, [r8, r4]       @; Guardar la recombinació en la matriu 2
-    add r6, #1               
-    cmp r6, #ROWS*COLUMNS    @; Comprovar si s'han recorregut totes les caselles
-    bhs .Linici              
-	
-.Lwhile1:
-
-    mov r0, #ROWS			 @; Carreguem el numero de files maxim	
-    bl mod_random            @; Generar un valor aleatori 
-    mov r9, r0               @; Guardar el valor aleatori a r9 
-
-    mov r0, #COLUMNS         @; Carreguem el numero de columnes maxim
-    bl mod_random            @; Generar un valor aleatori 
-    mov r10, r0              @; Guardar el valor aleatori a r10 
-    mov r0, r12              @; Restaurar l'adreça base de la matriu original
-
-    mov r5, #COLUMNS         @; Carreguem el numero de columnes maxim
-    mla r11, r9, r5, r10     @; r11 = (i*columns) --> Et poses a la fila que vols +j per desplaçarte dins la fila
-    ldrb r9, [r7, r11]       @; Carregar el valor de mat_recomb1
-
-@; Comprovar que mat_recomb1 no sigui 0
-
-    cmp r9, #0               @; Comprovar si la posició és buida
-    beq .Lwhile1             @; Si està buida, tornar a calcular 
-
-@; Afegir mat_recomb1 a mat_recomb2 sumant els bits de gelatina
-
-    ldrb r10, [r8, r4]       @; Carregar el valor de mat_recomb2[i][j]
-    orr r5, r9, r10          @; R9--> Element basic , r10 --> gelatina o gelatina doble (junten bits i queda numero final)
-    strb r5, [r8, r4]        @; Guardar el resultat a recomb2
-	
-
-@; Mirem si hi ha alguna repeticio amb la funcio cuenta repeticiones
-
-@; Observem cap al Oest
-    mov r3, #2               @; Parametre orientació Oest
-    mov r0, r8               @; Parametre per passar la matriu recomb2
-    bl cuenta_repeticiones   @; Cridem a la funcio
-	
-    cmp r0, #3               @; Comprovar si hi ha 3 o més repeticions
-    bhs .Lhaysecuencia       @; Salt si hi ha sequencia
-	mov r0, r12              @; Restaurar l'adreça base de la matriu original
-
-@; Observem cap al Nord
-    mov r3, #3               @; Parametre orientació Nord
-    mov r0, r8               @; Passar la matriu recomb2
-    bl cuenta_repeticiones   @; Cridem a la funcio
-	
-    cmp r0, #3               @; Comprovar si hi ha 3 o més repeticions
-    bhs .Lhaysecuencia       @; Salta si hi ha sequencia
-	mov r0, r12				 @; Retornem a r0 el valor de la matriu oringinal
-	
-    mov r5, #0
-    strb r5, [r7, r11]       @; Posar a 0 el lloc de recomb1
-	
-.Lendif2:
-    add r2, #1               @; Incrementar columna
-    b .Lfor4                 @; Tornar a bucle de columnes
-
-.Lendfor4:    
-    add r1, #1               @; Incrementar fila
-    b .Lfor3                 @; Tornar a bucle de files
-
-.Lendfor3:    
-@; Comprovar que hi ha combinacions a la nova matriu
-
-    mov r0, r8               @; Parametre per passar la matriu recomb2
-    bl hay_combinacion       @; Cridem a la funcio 
-    cmp r0, #1               @; Comprovar si hi ha combinacions
-	mov r0, r12				 @; Restaurar l'adreça base de la matriu original
-    bne .Linici              @; Salta sino hi han combinacions
-	
-
-@; Guardar mat_recomb2 en la matriu de joc original
-
-    mov r1, #0               @; Inicialitzar el comptador
-    mov r2, #ROWS*COLUMNS    @; Establir el límit del bucle (posicions totals)
-	
-.Lfor5:
-@; Bucle per a carregar i guardar els valors de met_recomb2 a la matriu original
-
-    cmp r1, r2               @; Comprovar si hem recorregut tota la matriu
-    bhs .Lendfor5            @; Salta ha recorregut tota la mtriu
-    ldrb r10, [r8, r1]       @; Carregar el valor de mat_recomb2[i][j]
-    strb r10, [r12, r1]      @; Guardar el valor a la matriu de joc original
-    add r1, #1               @; Incrementem comptador
-    b .Lfor5                 @; Tornar a bucle
-
-.Lendfor5:
-
-    pop {r0-r12, lr}
+    add r2, #1                            @; col++
+    cmp r2, #COLUMNS                      @; ¿quedan columnas por copiar?
+    blt .LCpCols                          @; Sí -> siguiente columna
+  
+    add r1, #1                            @; fila++
+    cmp r1, #ROWS                         @; ¿quedan filas por copiar?
+    blt .LCpFilas                         @; Sí -> siguiente fila
+   
+    pop {r0-r12, pc}  
 
 
 
 @;:::RUTINAS DE SOPORTE:::
-
 
 
 @; mod_random(n): rutina para obtener un número aleatorio entre 0 y n-1,

@@ -1,22 +1,21 @@
 ﻿/*------------------------------------------------------------------------------
 
-	$ candy2_main.c $
+	$ candy1_main.c $
 
 	Programa principal para la práctica de Computadores: candy-crash para NDS
 	(2º curso de Grado de Ingeniería Informática - ETSE - URV)
 	
 	Analista-programador: santiago.romani@urv.cat
-	Programador 1: xxx.xxx@estudiants.urv.cat
-	Programador 2: yyy.yyy@estudiants.urv.cat
-	Programador 3: zzz.zzz@estudiants.urv.cat
-	Programador 4: uuu.uuu@estudiants.urv.cat
-	Programador tarea 2Jd: vvv.vvv@estudians.urv.cat
+	Programador 1: jan.bofarull@estudiants.urv.cat
+	Programador 2: biel.martinez@estudiants.urv.cat
+	Programador 3: ernestode.vicente-tutor@estudiants.urv.cat
+	Programador 4: vladyslav.lysyy@estudiants.urv.cat
 
 ------------------------------------------------------------------------------*/
 #include <nds.h>
 #include <stdio.h>
 #include <time.h>
-#include "candy2_incl.h"
+#include "candy1_incl.h"
 
 
 /* ATENCIÓN: cuando el programa se considere terminado, hay que comentar la
@@ -217,29 +216,6 @@ void actualiza_contadores(unsigned char lev, short p, unsigned char m,
 
 
 
-/* inicializa_interrupciones(): configura las direcciones de las RSI y los bits
-	de habilitación (enable) del controlador de interrupciones para que se
-	puedan generar las interrupciones requeridas.*/ 
-void inicializa_interrupciones()
-{
-	irqSet(IRQ_VBLANK, rsi_vblank);
-	TIMER0_CR = 0x00;  		// inicialmente los timers no generan interrupciones
-	irqSet(IRQ_TIMER0, rsi_timer0);		// cargar direcciones de las RSI
-	irqEnable(IRQ_TIMER0);				// habilitar la IRQ correspondiente
-	TIMER1_CR = 0x00;
-	irqSet(IRQ_TIMER1, rsi_timer1);
-	irqEnable(IRQ_TIMER1);
-	TIMER2_CR = 0x00;
-	irqSet(IRQ_TIMER2, rsi_timer2);
-	irqEnable(IRQ_TIMER2);
-	TIMER3_CR = 0x00;
-	irqSet(IRQ_TIMER3, rsi_timer3);
-	irqEnable(IRQ_TIMER3);
-}
-
-
-
-
 /* inicializa_nivel(mat,lev,*p,*m,*g): inicializa un nivel de juego a partir
 	del parámetro lev (level), modificando la matriz y la información de juego
 	(puntos, movimientos, gelatinas) que se pasan por referencia.
@@ -248,9 +224,6 @@ void inicializa_nivel(char mat[][COLUMNS], unsigned char lev,
 							short *p, unsigned char *m, unsigned char *g)
 {
 	inicializa_matriz(mat, lev);
-	genera_sprites(mat);
-	genera_mapa1(mat);
-	genera_mapa2(mat);
 	escribe_matriz(mat);
 	*p = pun_obj[lev];
 	*m = max_mov[lev];
@@ -289,8 +262,9 @@ unsigned char procesa_pulsacion(char mat[][COLUMNS],
 			guarda_backup(mat, p, *m, g);
 #endif
 		}
-		else			// si no se genera secuencia,		
-		{				// deshace el cambio
+		else						
+		{				// si no se genera secuencia,
+			retardo(3);			// deshace el cambio
 			intercambia_posiciones(mat, mX, mY, dX, dY);
 			escribe_matriz(mat);
 		}
@@ -363,15 +337,14 @@ void procesa_rotura(char mat[][COLUMNS], unsigned char lev,
 		PC_ENDNOSQ (1):	no ha habido caída y no se han formado nuevas secuencias
 		PC_ENDSEQ  (2):	no ha habido caída y se han formado nuevas secuencias
 */
-unsigned char procesa_caida(unsigned char f_init, char mat[][COLUMNS],
+unsigned char procesa_caida(char mat[][COLUMNS],
 								short p, unsigned char m, unsigned char g)
 {
 	unsigned char result = PC_FALLING;
 
+	retardo(3);			// tiempo para ver la bajada
 	if (baja_elementos(mat))
 	{
-		activa_timer0(f_init);		// activar timer de movimientos
-		while (timer0_on) swiWaitForVBlank();	// espera final
 		escribe_matriz(mat);
 #ifdef TRUCOS			
 		guarda_backup(mat, p, m, g);
@@ -428,8 +401,6 @@ unsigned char comprueba_jugada(char mat[][COLUMNS], unsigned char *lev,
 		else					// si no hay combinaciones
 		{
 			recombina_elementos(mat);
-			activa_timer0(1);		// activar timer de movimientos
-			while (timer0_on) swiWaitForVBlank();	// espera final
 			escribe_matriz(mat);
 			if (!hay_combinacion(mat))  result = CJ_RNOCMB;
 			else						result = CJ_RCOMB;
@@ -440,6 +411,7 @@ unsigned char comprueba_jugada(char mat[][COLUMNS], unsigned char *lev,
 	}
 	return(result);
 }
+
 
 
 
@@ -461,21 +433,13 @@ void procesa_sugerencia(char mat[][COLUMNS], unsigned short lap)
 	{							// activa mostrar elementos sugeridos
 		oculta_elementos(mat, pos_sug);
 		escribe_matriz(mat);
+		retardo(3);
 		muestra_elementos(mat, pos_sug);
 		escribe_matriz(mat);
 	}
 }
 
 
-
-/* procesa_botonY(): comprueba la pulsación del botón 'Y' y activa o desactiva
-	el desplazamiento del fondo gráfico. */
-void procesa_botonY()
-{
-// Tarea 2Jd:
-
-
-}
 
 
 
@@ -491,19 +455,14 @@ int main(void)
 	unsigned char state = E_INIT;	// estado actual del programa
 	unsigned short lapse = 0;		// contador VBLs inactividad del usuario
 	unsigned char ret;				// código de retorno de funciones auxiliares
-	unsigned char fall_init = 1;	// código de inicio de caída
 
 	seed32 = time(NULL);			// fija semilla inicial números aleatorios
-	init_grafA();
-	inicializa_interrupciones();
-
 	consoleDemoInit();				// inicializa pantalla de texto
-	printf("candyNDS (version 2: graficos)\n");
+	printf("candyNDS (version 1: texto)\n");
 	printf("\x1b[38m\x1b[1;0H  nivel:");
 	printf("\x1b[39m\x1b[2;0H puntos:");
 	printf("\x1b[38m\x1b[1;15H movimientos:");
 	printf("\x1b[37m\x1b[2;15H   gelatinas:");
-	printf("\x1b[38m\x1b[3;0H despl.fondo (tecla Y): no");
 
 	do								// bucle principal del juego
 	{
@@ -533,21 +492,18 @@ int main(void)
 #ifdef TRUCOS
 						testing(&state, matrix, level, &points, &moves, &gelees);
 #endif
-						procesa_botonY();
 						break;
 			case E_BREAK:		//////	ESTADO DE ROMPER SECUENCIAS	//////
 						procesa_rotura(matrix, level, &points, moves, &gelees);
-						fall_init = 1;
 						lapse = 0;
 						state = E_FALL;
 						break;
 			case E_FALL:		//////	ESTADO DE CAÍDA DE ELEMENTOS	//////
-						ret = procesa_caida(fall_init, matrix, points, moves, gelees);
+						ret = procesa_caida(matrix, points, moves, gelees);
 											// cuando ya no haya más bajadas,
 						if (ret == PC_ENDNOSQ)	state = E_CHECK;		// comprueba situación del juego
 						else if (ret == PC_ENDSEQ)	state = E_BREAK;	// o rompe secuencia (si la hay)
-						else		// si ha habido algún movimiento de caída, sigue en estado E_FALL,
-							fall_init = 0;		// pero desactiva inicio caída para permitir la caída con aceleración
+						// si ha habido algún movimiento de caída, sigue en estado E_FALL
 						break;
 			case E_CHECK:		//////	ESTADO DE VERIFICACIÓN	//////
 						ret = comprueba_jugada(matrix, &level, points, moves, gelees);
@@ -561,4 +517,5 @@ int main(void)
 	
 	return(0);					// nunca retornará del main
 }
+
 
